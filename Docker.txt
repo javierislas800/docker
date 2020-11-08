@@ -1,0 +1,354 @@
+https://hub.docker.com/_/mongo
+
+# Para descargar una imagen.
+docker pull mongo
+docker pull mongo:3.7.9-xenial
+
+# Listar imagenes
+docker images
+
+
+# Crear imagenes a partir de un dockerfile en la misma ruta.
+docker build --tag apache-centos .
+docker build -t test -f my-dockerfile .
+
+# Para ver la imagen
+docker history -H apache-centos
+
+# Eliminar un contenedor
+docker rm -fv apache-centos
+
+# Eliminar todos los contenedores
+docker ps -q | xargs docker rm -f
+
+# Listar contenedores
+docker ps
+docker ps -a
+docker ps --no-trunc
+
+# Crear un contenedores (-d background)
+docker run -d apache-centos
+docker run -d --name apache apache-centos:apache-cmd
+docker run -d -p 80:80 apache
+
+# Crear un contenedor con variable de entorno
+docker run -dti -e "prueba1=1234"  --name environment env
+
+#con puerto
+docker run -d --name apache1 -p 80:80 apache-centos:apache-cmd
+
+#recursos limitados (memoria)
+docker run -d -m "500mb" --name mongo mongo
+
+#limitar #cpu (0-3 #cpus)
+docker run -d -m "500mb" --cpuset-cpus 0-1  --name mongo mongo
+
+# Para ver el log del contenedores
+docker logs magical_kalam
+
+# Para inspeccionar un contenedor
+docker inspect my-db1
+
+#Para copiar archivos al contenedor
+docker cp index.html apache:/tmp
+
+#Para copiar del contenedor a la maquina local.
+docker cp apache:/var/log/dpkg.log .
+
+#Para crear una imagen a partir de un contenedor.
+docker commit centos centos-resultante
+
+#(Lo que este en volume no se guarda cuando se crea una imagen a partir de un contenedor)
+VOLUME /opt/volumen
+
+# Para crear un contenedor temporal(al salir del bash se destruye el contenedor)
+docker un --rm -ti --name centos centos bash
+
+# Para cambiar el "Docker Root Dir" (es donde se guardan los archivos docker, default /var/lib/docker en linux)
+editar /libsystemd/system/docker.service
+ExecStart=/usr/bin/dockerd --data-root /opt
+systemctl daemon-reload
+systemctl restart docker
+
+
+# Para cambiar el comando inicial del contenedor
+# ("python -m SimpleHTTPServer 8080" es el comando a ejecutar en el contenedor)
+docker run -d -p 8080:8080 centos python -m SimpleHTTPServer 8080
+
+#Para que docker no vea un archivo en la construcción de la imagen.
+.gitignore
+
+#Para eliminar imagenes
+docker rmi 4c9d8164de49
+docker rmi centos:7 apache-centos:latest
+
+#Para ver imagenes sin referencia (sin nombre y tag)
+docker images -f dangling=true
+
+#Para eliminar imagenes sin referencia.
+docker images -f dangling=true -q | xargs docker rmi
+
+#Para renombrar un contenedores
+docker rename nice_newton jenkins
+
+#Para detener un contenedor (sin eliminarlo)
+docker stop jenkins
+
+#Para iniciar el contenedor detenido
+docker start jenkins
+
+#Para reinciar el contenedor
+docker restart jenkins
+
+#Para ver las estadisticas de contenedores
+docker stats my-mongo2
+
+#Para ingresar al contenedor (-ti Terminal interactiva)
+docker exec -ti jenkins bash
+docker exec -u root -ti jenkins bash
+
+
+Multistage build (en el Dockerfile)
+FROM ..
+..
+FROM ..
+
+#Para ejecutar el contenedor mysql.
+docker run -d -p 3306:3306 --name my-db -e "MYSQL_ROOT_PASSWORD=12345678" -e "MYSQL_DATABASE=docker-db" -e "MYSQL_USER=docker-user" -e "MYSQL_PASSWORD=87654321" mysql
+
+#Para conectar al contenedor mysql.
+mysql -u root -h 127.0.0.1 -p
+
+VOLUMENES
+==========
+- Host.- Se almacenan en el docker host y viven en el filesystem en una carpeta definida.
+- Anonymus.- Docker genera una carpeta random y no tienen nombres.
+- Named Volumenes.- Son carpetas administradas por docker, tienen un nombre.
+
+#Para crear un volumen de tipo host (-v)
+docker run -d -p 3306:3306 --name db -e "MYSQL_ROOT_PASSWORD=12345678" -v /Users/javier/Docker/volumenes/mysql:/var/lib/mysql mysql
+
+#Para crear un volumen de tipo anonymus (-v solo se especifica la ruta del contenedor, docker crea la carpeta en el host con un nombre aleatorio en la ruta de docker).
+#Si se elimina el contenedor con -v el volumne en el docker host se eliminará también.
+docker run -d -p 3306:3306 --name db -e "MYSQL_ROOT_PASSWORD=12345678" -v /var/lib/mysql mysql
+
+#Para volumenes named.
+docker volume create my-vol
+
+#Para crear un contenedor con un volumen nombrado, el volumne es persistente aun despues de eliminar el contenedor con -vf
+docker run -d --name mysql -v my-vol:/var/lib/mysql -p 3306:3306 -e "MYSQL_ROOT_PASSWORD=12345678" -e "MYSQL_DATABASE=docker-db" mysql:5.7
+
+
+#Para listar volumenes.
+docker volume ls -f dangling=true
+
+#Para eliminar todos los volumenes dangling
+docker volume ls -f dangling=true -q | xargs docker volume rm
+
+#Para eliminar un volumen named.
+docker volume rm  my-vol
+
+
+
+REDES
+=============
+#Listar interfaces Host Linux
+ip a | grep docker
+
+#Para ver la red de un contendor
+docker inspect nombre_contenedor
+
+La red por default cuando se crean contenedores: bridge, los contenedores en esta red no se pueden ver por nombre solo por IP.
+
+#Para crear una RED
+docker network create test-network
+docker network create -d bridge --subnet 172.124.10.0/24 --gateway 172.124.10.1 docker-test-network
+
+#Para listar las redes de docker
+docker network ls
+
+#Para ver la una red
+docker network inspect ad962d76975e
+
+#Para crear un contenedor en una red diferente
+docker run --network test-network -d --name test3 -ti centos
+
+#Ping entre contenedores de la misma red
+docker exec cont1 bash -c "ping 172.124.10.3"
+
+#En redes definidas por el usuario se pueden ver los contenedores por su nombre ... "ping nombre_contenedor"
+
+#Para conectar un contenedor a otra red docker
+docker network connect docker-test-network nombre_contenedor
+#Con esto el contenedor nombre_contenedor esta en 2 redes.
+
+#Para desconectar un contenedor de una red
+docker network disconnect docker-test-network nombre_contenedor
+
+#Para eliminar una red (endpoints => contenedores en la red)
+docker network rm docker-test-network
+
+
+#Para asignar una IP a un contenedor
+docker run --network my-net --ip 172.128.10.50 -d --name nginx1 -ti centos
+
+#La red del host (Hereda la configuracion de red del host)
+docker run --network host -d --name test2 -ti centos
+
+#Para contenedor que no tengan red
+docker run --network none --name hola -d -ti centos
+
+
+DOCKER COMPOSE
+==============
+
+#Para crear una aplicacion multicontenedor,
+#Se define en un archivo de texto yml (crear contenedores, imagenes, volumenes, redes, ...)
+
+#Se crea un archivo docker-compose.yml
+#Para iniciar el docker-compose en la misma ruta del docker-compose.yml
+docker-compose up -d
+docker-compose -f docker-compose-cmd.yml up -d
+
+# o con otro nombre de archivo docker-compose-memory.yml
+docker-compose -f docker-compose-memory.yml up -d
+
+#Para detener el docker-compose
+docker-compose down
+
+#Variables de entorno( Se puede definir en el yml)
+environment:
+    - "MYSQL_ROOT_PASSWORD=12345678"
+
+#Vairables de entorno (Se pueden definir en un archivo adicional, en common.env se agregan las variables key=value)
+env_file: common.env
+
+
+#Volumenes nombrados
+services:
+    web:
+        container_name: nginx1
+        ports:
+            - "8080:80"
+        image: nginx
+        volumes:
+            - "vol2:/usr/share/nginx/html"
+volumes:
+    vol2:
+
+#Volumenes de Host
+services:
+    web:
+        container_name: nginx1
+        ports:
+            - "8080:80"
+        image: nginx
+        volumes:
+            - "/home/javier/docker-compose/html:/usr/share/nginx/html"
+
+#Redes (Se puede hacer ping al nombre del contenedor o al nombre del servicio.)
+services:
+    web:
+        container_name: nginx1
+        ports:
+            - "8080:80"
+        image: nginx
+        networks:
+            - net-test
+networks:
+    net-test:
+
+#Imagenes con docker compose
+#Se crea un archivo Dockerfile y se ejecuta: docker-compose build
+version: '3'
+services:
+    web:
+        container_name: web
+        image: web-test
+        build: .
+            #context: . #o se especifica en que carpeta esta el dockerfile y el nombre del dockerfile
+            #dockerfile: Dockerfile1
+
+#Listar recursos de un contenedor
+version: '2'
+services:
+    web:
+        container_name: nginx
+        mem_limit: 20m
+        cpuset: "0"
+        image: nginx:alpine
+
+
+#Politicas de reinicio en contenedores de docker.
+#Condiciones en las que un contenedor deberías ser reiniciado.
+#no => nunca se reinicia
+#on-failure => Si el contenedor termina con error.
+#unless-stopped => Si se detiene manualmente no se reinicia.
+#always => Siempre se reinicia cuando se muere.
+
+version: '3'
+services:
+    test:
+        container_name: test
+        image: restart-image
+        build: .
+        restart: unless-stopped
+
+
+#Para cambiar el prefijo de los volumenes y redes (-p webtest) <= nombre del proyecto
+docker-compose -p webtest -f docker-compose-cmd.yaml -d
+
+
+#Dependencia de servicios
+        depends_on:
+            - db # Nombre del servicio del que depende.
+
+#Para ver el log de docker-compose
+docker-compose logs -f
+
+
+#Docker Registry
+#Sevicio para registrar imagenes locales.
+docker run -d -p 5000:5000 --name registry -v $PWD/data:/var/lib/registry registry:2
+
+#Para tagear la imagen.
+docker tag nombre_imagen:latest localhost:5000/hello-world
+
+#Para subir la imagen al registry.
+docker push localhost:5000/hello-world
+
+
+#Para bajar la imagen del registry
+docker pull localhost:5000/hello-world
+
+#Para subir y bajar imagenes del registry desde otra maquina.
+#En el servidor del registry.
+vi /lib/systemd/system/docker.service
+
+ExecStart=/usr/bin/dockerd --insecure-registry 10.0.2.15:5000
+
+sudo systemctl daemon-reload
+docker stop registry
+sudo systemctl restart docker
+docker start registry
+
+docker push 10.0.2.15:5000/hello-world
+
+docker pull 10.0.2.15:5000/hello-world
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.
